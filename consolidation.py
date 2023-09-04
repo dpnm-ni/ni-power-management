@@ -272,7 +272,6 @@ def get_busy_vnf_info():
 def do_learn_consolidation(mode):
 
     network_info = check_network_topology()
-
     #ConsolidationInfo(name,flag,model,edge_name,nodes,is_trained)
 
 
@@ -280,7 +279,7 @@ def do_learn_consolidation(mode):
         if len(value) == 1 : continue # computing node가 하나밖에 없는 edge는 무시
         response = ConsolidationInfo(key,mode,value,False) # edge 단위로 Consolidation을 생성
         consolidation_list.append(response)
-        if mode=="dqn" :
+        if mode=="DQN" :
             DQN.start(response)
         else :
             PPO.start(response)

@@ -250,7 +250,7 @@ def train(agent: PPOAgent, make_env_fn: Callable, args: TrainArgs, file_name_pre
         debug_infos.append(debug_info)
         memory.reset()
         if episode % args.evaluate_every_n_episode == 0:
-            evaluate(agent, make_env_fn, seed, f'{file_name_prefix}_episode{episode}')
+            evaluate(agent, make_env_fn, args.seed, f'{file_name_prefix}_episode{episode}')
             agent.set_train()
         if debug_info.mean_100_reward > highest_reward:
             highest_reward = debug_info.mean_100_reward
@@ -382,10 +382,10 @@ def start(consolidation):
     os.makedirs('result/ppo', exist_ok=True)
 
     if is_trained :
-        evaluate(agent, make_env_fn, seed, f'result/ppo/testebed_final')
+        evaluate(agent, make_env_fn, train_args.seed, f'result/ppo/testebed_final')
     else : 
         train(agent, make_env_fn, train_args,
               file_name_prefix=f'result/ppo/testebed')
-        evaluate(agent, make_env_fn, seed, f'result/ppo/testebed_final')
+        evaluate(agent, make_env_fn, train_args.seed, f'result/ppo/testebed_final')
 
     

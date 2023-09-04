@@ -207,7 +207,7 @@ class Testbed(Api):
                 )
                 self.srvs.append(server)
 
-
+        
         for sfc_info in self.sfcs_data:
             vnfs = [vnf for vnf in self.vnfs if vnf.sfc_id == self.sfc_id_to_index[sfc_info.id]]
             sfc = SFC(
@@ -216,6 +216,17 @@ class Testbed(Api):
                 vnfs=vnfs
             )
             self.sfcs.append(sfc)
+
+        # sfc가 없는 vnf들 처리
+        for vnf in self.vnfs:
+            if vnf.sfc_id == -1:
+                vnf.sfc_id = len(self.sfcs)
+                self.sfc_id_to_index[vnf.sfc_id] = len(self.sfcs)
+                self.sfcs.append(SFC(
+                    id=len(self.sfcs),
+                    oid=None,
+                    vnfs=[vnf]
+                ))
 
 
         self.edge = Edge(

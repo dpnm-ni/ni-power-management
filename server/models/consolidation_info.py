@@ -6,29 +6,26 @@ from datetime import date, datetime  # noqa: F401
 from typing import List, Dict  # noqa: F401
 
 from server.models.base_model_ import Model
-from server import util
-import datetime as dt
-import threading
+
 
 class ConsolidationInfo(Model):
 
-    def __init__(self,name,model,nodes,is_trained):
+    def __init__(self, name, model, nodes, is_trained):
 
         self.name = name
         self.model = model
         self.nodes = nodes
         self.is_trained = is_trained
-        self.active_flag = False
+        self.active_flag = True
 
     def get_info(self):
-            return {
-                "name": self.name,
-                "active_flag": self.active_flag,
-                "model": self.model,
-                "nodes": self.nodes,
-                "is_trained": self.is_trained
-            }
-
+        return {
+            "name": self.name,
+            "active_flag": self.active_flag,
+            "model": self.model,
+            "nodes": self.nodes,
+            "is_trained": self.is_trained
+        }
 
     def get_name(self):
         return self.name

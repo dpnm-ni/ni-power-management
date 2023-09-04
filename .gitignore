@@ -3,3 +3,4 @@ __pycache__
 ni_mon_client
 ni_nfvo_client
 result/**
+param/**
