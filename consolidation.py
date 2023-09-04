@@ -1,18 +1,9 @@
 import ni_mon_client, ni_nfvo_client
-from ni_mon_client.rest import ApiException
-from ni_nfvo_client.rest import ApiException
-import datetime
-import json
 import time
-import requests
 import paramiko
-import numpy as np
-import subprocess
-import nn as mynn
 import os
 import sys
 from config import cfg
-from multiprocessing.pool import ThreadPool
 from server.models.consolidation_info import ConsolidationInfo
 import threading
 
@@ -150,9 +141,6 @@ def set_vnf_spec(vnf_name, node_name):
 
     return vnf_spec
 
-
-
-
 # Get instance name.
 def get_instance_name(vnf_id):
 
@@ -218,8 +206,7 @@ def source_openrc(ctrl_ssh):
 
 
 def check_network_topology():
-
-    api_response = ni_mon_api.get_links()
+    api_response = ni_mon_api.get_links() # get linked nodes info (node1_id, node2_id)
     print("tt : ", api_response)    
     compute_groups = {}
     for entry in api_response:
@@ -232,7 +219,7 @@ def check_network_topology():
             compute_groups[node1_id].append(node2_id)
 
     #'Switch-core-01'
-    return compute_groups
+    return compute_groups # 특정 switch에 연결된 compute node들의 정보를 담은 dictionary
 
 
 def find_related_ni_compute(target_ni_compute, data):
@@ -290,9 +277,8 @@ def do_learn_consolidation(mode):
 
 
     for key, value in network_info.items():
-
-        if len(value) == 1 : continue
-        response = ConsolidationInfo(key,mode,value,False)
+        if len(value) == 1 : continue # computing node가 하나밖에 없는 edge는 무시
+        response = ConsolidationInfo(key,mode,value,False) # edge 단위로 Consolidation을 생성
         consolidation_list.append(response)
         if mode=="dqn" :
             DQN.start(response)
@@ -315,17 +301,15 @@ def all_consolidation(mode):
     return
 
 def monitor(mode, response):
-
     while(True):
         if mode=="dqn" :
             DQN.start(response)
         else :
             PPO.start(response)
 
-        if response.flag == False :
+        if response.get_active_flag() == False :
             consolidation_list.remove(response)
             return
-
     time.sleep(5)
     return
 

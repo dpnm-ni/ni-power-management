@@ -18,7 +18,7 @@ REQUIRES = ["connexion"]
 setup(
     name=NAME,
     version=VERSION,
-    description="NI Migration Module"",
+    description="NI Migration Module",
     author_email="",
     url="",
     keywords=["Swagger", "NI Migration Module"],

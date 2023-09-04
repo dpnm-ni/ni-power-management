@@ -18,7 +18,7 @@ class ConsolidationInfo(Model):
         self.model = model
         self.nodes = nodes
         self.is_trained = is_trained
-        self.active_flag = True
+        self.active_flag = False
 
     def get_info(self):
             return {
