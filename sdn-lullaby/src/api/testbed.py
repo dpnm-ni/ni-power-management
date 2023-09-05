@@ -247,7 +247,6 @@ class Testbed(Api):
     def move_vnf(self, vnf_id: int, srv_id: int) -> bool:
 
 
-        
         # vnf_id가 존재하는지 확인
         target_vnf = None
         for srv in self.srvs:

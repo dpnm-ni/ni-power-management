@@ -25,7 +25,7 @@ from src.utils import (
 )
 
 torch.backends.cudnn.enabled = False
-torch.cuda.is_available = lambda : False
+torch.cuda.is_available = lambda: False
 
 
 @dataclass
@@ -50,6 +50,7 @@ class PPOAgentInfo:
     vnf_p_value_max_grad_norm: float
     edge_name: str
 
+
 class PPOAgent:
     def __init__(self, info: PPOAgentInfo):
         self.info = info
@@ -59,32 +60,43 @@ class PPOAgent:
         self.vnf_s_value = PPOValue(info.vnf_s_value_info)
         self.vnf_p_value = PPOValue(info.vnf_p_value_info)
 
-        self.vnf_s_policy_optimizer = torch.optim.Adam(self.vnf_s_policy.parameters(), lr=info.vnf_s_policy_lr)
-        self.vnf_p_policy_optimizer = torch.optim.Adam(self.vnf_p_policy.parameters(), lr=info.vnf_p_policy_lr)
-        self.vnf_s_value_optimizer = torch.optim.Adam(self.vnf_s_value.parameters(), lr=info.vnf_s_value_lr)
-        self.vnf_p_value_optimizer = torch.optim.Adam(self.vnf_p_value.parameters(), lr=info.vnf_p_value_lr)
+        self.vnf_s_policy_optimizer = torch.optim.Adam(
+            self.vnf_s_policy.parameters(), lr=info.vnf_s_policy_lr)
+        self.vnf_p_policy_optimizer = torch.optim.Adam(
+            self.vnf_p_policy.parameters(), lr=info.vnf_p_policy_lr)
+        self.vnf_s_value_optimizer = torch.optim.Adam(
+            self.vnf_s_value.parameters(), lr=info.vnf_s_value_lr)
+        self.vnf_p_value_optimizer = torch.optim.Adam(
+            self.vnf_p_value.parameters(), lr=info.vnf_p_value_lr)
         self.edge_name = info.edge_name
 
-    def decide_action(self, state: State, greedy: bool=False)-> Action:
-        p_actions = get_possible_actions(state, self.info.vnf_s_policy_info.out_dim)
-        if greedy: # Greedy
-            vnf_s_in = convert_state_to_vnf_selection_input(state, self.info.vnf_s_policy_info.out_dim)
+    def decide_action(self, state: State, greedy: bool = False) -> Action:
+        p_actions = get_possible_actions(
+            state, self.info.vnf_s_policy_info.out_dim)
+        if greedy:  # Greedy
+            vnf_s_in = convert_state_to_vnf_selection_input(
+                state, self.info.vnf_s_policy_info.out_dim)
             vnf_s_out = self.vnf_s_policy(vnf_s_in).detach().cpu()
-            vnf_s_out = vnf_s_out * torch.tensor([True if len(p_actions[vnf_id]) > 0 else False for vnf_id in range(self.info.vnf_s_policy_info.out_dim)])
+            vnf_s_out = vnf_s_out * torch.tensor([True if len(
+                p_actions[vnf_id]) > 0 else False for vnf_id in range(self.info.vnf_s_policy_info.out_dim)])
             vnf_id = int(vnf_s_out.max())
             vnf_p_in = convert_state_to_vnf_placement_input(state, vnf_id)
             vnf_p_out = self.vnf_p_policy(vnf_p_in).detach().cpu()
-            vnf_p_out = vnf_p_out * torch.tensor([True if srv_id in p_actions[vnf_id] else False for srv_id in range(self.info.vnf_p_policy_info.out_dim)])
+            vnf_p_out = vnf_p_out * torch.tensor([True if srv_id in p_actions[vnf_id]
+                                                 else False for srv_id in range(self.info.vnf_p_policy_info.out_dim)])
             srv_id = int(vnf_p_out.max())
-        else: # Stochastic
-            vnf_s_in = convert_state_to_vnf_selection_input(state, self.info.vnf_s_policy_info.out_dim)
+        else:  # Stochastic
+            vnf_s_in = convert_state_to_vnf_selection_input(
+                state, self.info.vnf_s_policy_info.out_dim)
             vnf_s_out = self.vnf_s_policy(vnf_s_in).detach().cpu()
-            vnf_s_out = vnf_s_out * torch.tensor([True if len(p_actions[vnf_id]) > 0 else False for vnf_id in range(self.info.vnf_s_policy_info.out_dim)])
+            vnf_s_out = vnf_s_out * torch.tensor([True if len(
+                p_actions[vnf_id]) > 0 else False for vnf_id in range(self.info.vnf_s_policy_info.out_dim)])
             vnf_id, _, _ = get_info_from_logits(vnf_s_out.unsqueeze(0))
             vnf_id = int(vnf_id)
             vnf_p_in = convert_state_to_vnf_placement_input(state, vnf_id)
             vnf_p_out = self.vnf_p_policy(vnf_p_in).detach().cpu()
-            vnf_p_out = vnf_p_out * torch.tensor([True if srv_id in p_actions[vnf_id] else False for srv_id in range(self.info.vnf_p_policy_info.out_dim)])
+            vnf_p_out = vnf_p_out * torch.tensor([True if srv_id in p_actions[vnf_id]
+                                                 else False for srv_id in range(self.info.vnf_p_policy_info.out_dim)])
             srv_id, _, _ = get_info_from_logits(vnf_p_out.unsqueeze(0))
             srv_id = int(srv_id)
         return Action(vnf_id=vnf_id, srv_id=srv_id)
@@ -103,15 +115,19 @@ class PPOAgent:
 
         vnf_s_rations = torch.exp(vnf_s_logpas_pred - logpas[:, 0])
         vnf_s_pi_obj = vnf_s_rations * gaes[:, 0]
-        vnf_s_pi_obj_clipped = vnf_s_rations.clamp(1.0 - self.info.vnf_s_policy_clip_range, 1.0 + self.info.vnf_s_policy_clip_range) * gaes[:, 0]
+        vnf_s_pi_obj_clipped = vnf_s_rations.clamp(
+            1.0 - self.info.vnf_s_policy_clip_range, 1.0 + self.info.vnf_s_policy_clip_range) * gaes[:, 0]
 
-        vnf_s_policy_loss = -torch.min(vnf_s_pi_obj, vnf_s_pi_obj_clipped).mean()
+        vnf_s_policy_loss = - \
+            torch.min(vnf_s_pi_obj, vnf_s_pi_obj_clipped).mean()
         vnf_s_entropy_loss = -vnf_s_entropies_pred.mean()
-        vnf_s_policy_loss = vnf_s_policy_loss + self.info.vnf_s_entropy_loss_weight * vnf_s_entropy_loss
+        vnf_s_policy_loss = vnf_s_policy_loss + \
+            self.info.vnf_s_entropy_loss_weight * vnf_s_entropy_loss
 
         self.vnf_s_policy_optimizer.zero_grad()
         vnf_s_policy_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.vnf_s_policy.parameters(), self.info.vnf_s_policy_max_grad_norm)
+        torch.nn.utils.clip_grad_norm_(
+            self.vnf_s_policy.parameters(), self.info.vnf_s_policy_max_grad_norm)
         self.vnf_s_policy_optimizer.step()
 
         vnf_p_outs = self.vnf_p_policy(vnf_p_ins)
@@ -122,15 +138,19 @@ class PPOAgent:
 
         vnf_p_rations = torch.exp(vnf_p_logpas_pred - logpas[:, 1])
         vnf_p_pi_obj = vnf_p_rations * gaes[:, 1]
-        vnf_p_pi_obj_clipped = vnf_p_rations.clamp(1.0 - self.info.vnf_p_policy_clip_range, 1.0 + self.info.vnf_p_policy_clip_range) * gaes[:, 1]
+        vnf_p_pi_obj_clipped = vnf_p_rations.clamp(
+            1.0 - self.info.vnf_p_policy_clip_range, 1.0 + self.info.vnf_p_policy_clip_range) * gaes[:, 1]
 
-        vnf_p_policy_loss = -torch.min(vnf_p_pi_obj, vnf_p_pi_obj_clipped).mean()
+        vnf_p_policy_loss = - \
+            torch.min(vnf_p_pi_obj, vnf_p_pi_obj_clipped).mean()
         vnf_p_entropy_loss = -vnf_p_entropies_pred.mean()
-        vnf_p_policy_loss = vnf_p_policy_loss + self.info.vnf_p_entropy_loss_weight * vnf_p_entropy_loss
+        vnf_p_policy_loss = vnf_p_policy_loss + \
+            self.info.vnf_p_entropy_loss_weight * vnf_p_entropy_loss
 
         self.vnf_p_policy_optimizer.zero_grad()
         vnf_p_policy_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.vnf_p_policy.parameters(), self.info.vnf_p_policy_max_grad_norm)
+        torch.nn.utils.clip_grad_norm_(
+            self.vnf_p_policy.parameters(), self.info.vnf_p_policy_max_grad_norm)
         self.vnf_p_policy_optimizer.step()
 
     def update_value(self, vnf_s_ins: torch.Tensor, vnf_p_ins: torch.Tensor, actions: torch.Tensor, returns: torch.Tensor, gaes: torch.Tensor, logpas: torch.Tensor, values: torch.Tensor) -> None:
@@ -140,27 +160,37 @@ class PPOAgent:
         vnf_p_values = values[:, 1].to(self.info.vnf_p_value_info.device)
 
         vnf_s_value_pred = self.vnf_s_value(vnf_s_ins)
-        vnf_s_value_pred_clipped = vnf_s_values + (vnf_s_value_pred - vnf_s_values).clamp(-self.info.vnf_s_value_clip_range, self.info.vnf_s_value_clip_range)
+        vnf_s_value_pred_clipped = vnf_s_values + \
+            (vnf_s_value_pred - vnf_s_values).clamp(-self.info.vnf_s_value_clip_range,
+                                                    self.info.vnf_s_value_clip_range)
 
         vnf_s_value_loss = (vnf_s_value_pred - vnf_s_returns).pow(2)
-        vnf_s_value_loss_clipped = (vnf_s_value_pred_clipped - vnf_s_returns).pow(2)
-        vnf_s_value_loss = 0.5 * torch.max(vnf_s_value_loss, vnf_s_value_loss_clipped).mean()
+        vnf_s_value_loss_clipped = (
+            vnf_s_value_pred_clipped - vnf_s_returns).pow(2)
+        vnf_s_value_loss = 0.5 * \
+            torch.max(vnf_s_value_loss, vnf_s_value_loss_clipped).mean()
 
         self.vnf_s_value_optimizer.zero_grad()
         vnf_s_value_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.vnf_s_value.parameters(), self.info.vnf_s_value_max_grad_norm)
+        torch.nn.utils.clip_grad_norm_(
+            self.vnf_s_value.parameters(), self.info.vnf_s_value_max_grad_norm)
         self.vnf_s_value_optimizer.step()
 
         vnf_p_value_pred = self.vnf_p_value(vnf_p_ins)
-        vnf_p_value_pred_clipped = vnf_p_values + (vnf_p_value_pred - vnf_p_values).clamp(-self.info.vnf_p_value_clip_range, self.info.vnf_p_value_clip_range)
+        vnf_p_value_pred_clipped = vnf_p_values + \
+            (vnf_p_value_pred - vnf_p_values).clamp(-self.info.vnf_p_value_clip_range,
+                                                    self.info.vnf_p_value_clip_range)
 
         vnf_p_value_loss = (vnf_p_value_pred - vnf_p_returns).pow(2)
-        vnf_p_value_loss_clipped = (vnf_p_value_pred_clipped - vnf_p_returns).pow(2)
-        vnf_p_value_loss = 0.5 * torch.max(vnf_p_value_loss, vnf_p_value_loss_clipped).mean()
+        vnf_p_value_loss_clipped = (
+            vnf_p_value_pred_clipped - vnf_p_returns).pow(2)
+        vnf_p_value_loss = 0.5 * \
+            torch.max(vnf_p_value_loss, vnf_p_value_loss_clipped).mean()
 
         self.vnf_p_value_optimizer.zero_grad()
         vnf_p_value_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.vnf_p_value.parameters(), self.info.vnf_p_value_max_grad_norm)
+        torch.nn.utils.clip_grad_norm_(
+            self.vnf_p_value.parameters(), self.info.vnf_p_value_max_grad_norm)
         self.vnf_p_value_optimizer.step()
 
     def get_logpas_pred(self, vnf_s_ins: torch.Tensor, vnf_p_ins: torch.Tensor, actions: torch.Tensor) -> torch.Tensor:
@@ -178,25 +208,29 @@ class PPOAgent:
 
         return torch.stack([vnf_s_logpas_pred, vnf_p_logpas_pred], dim=1)
 
-
     def save(self) -> None:
         os.makedirs('param/ppo', exist_ok=True)
-        torch.save(self.vnf_p_policy.state_dict(), 'param/ppo/'+self.edge_name+'_vnf_p_policy.pt')
-        torch.save(self.vnf_s_policy.state_dict(), 'param/ppo/'+self.edge_name+'_vnf_s_policy.pt')
+        torch.save(self.vnf_p_policy.state_dict(), 'param/ppo/' +
+                   self.edge_name+'_vnf_p_policy.pt')
+        torch.save(self.vnf_s_policy.state_dict(), 'param/ppo/' +
+                   self.edge_name+'_vnf_s_policy.pt')
 
     def load(self) -> None:
-        self.vnf_p_policy.load_state_dict(torch.load('param/ppo/'+self.edge_name+'_vnf_p_policy.pt'))
+        self.vnf_p_policy.load_state_dict(torch.load(
+            'param/ppo/'+self.edge_name+'_vnf_p_policy.pt'))
         self.vnf_p_policy.eval()
-        self.vnf_s_policy.load_state_dict(torch.load('param/ppo/'+self.edge_name+'_vnf_s_policy.pt'))
+        self.vnf_s_policy.load_state_dict(torch.load(
+            'param/ppo/'+self.edge_name+'_vnf_s_policy.pt'))
         self.vnf_p_policy.eval()
 
     def set_train(self) -> None:
         self.vnf_p_policy.train()
         self.vnf_s_policy.train()
-    
+
     def set_eval(self) -> None:
         self.vnf_p_policy.eval()
         self.vnf_s_policy.eval()
+
 
 @dataclass
 class TrainArgs:
@@ -215,6 +249,7 @@ class TrainArgs:
     evaluate_every_n_episode: int
     policy_update_early_stop_threshold: float
     early_stop_patience: int
+
 
 def train(agent: PPOAgent, make_env_fn: Callable, args: TrainArgs, file_name_prefix: str):
     agent.set_train()
@@ -236,21 +271,26 @@ def train(agent: PPOAgent, make_env_fn: Callable, args: TrainArgs, file_name_pre
     early_stop_cnt = 0
     for episode in range(args.memory_max_episode_num, args.max_episode_num+args.memory_max_episode_num, args.memory_max_episode_num):
         memory.fill(mp_env, agent)
-        vnf_s_ins, vnf_p_ins, actions, _, _, logpas, _ = memory.samples(all=True)
+        vnf_s_ins, vnf_p_ins, actions, _, _, logpas, _ = memory.samples(
+            all=True)
         for _ in range(args.update_epochs):
             agent.update_policy(*memory.samples())
-            logpas_pred = agent.get_logpas_pred(vnf_s_ins, vnf_p_ins, actions).cpu()
-            early_stop = torch.abs(logpas - logpas_pred).mean() < args.policy_update_early_stop_threshold
+            logpas_pred = agent.get_logpas_pred(
+                vnf_s_ins, vnf_p_ins, actions).cpu()
+            early_stop = torch.abs(
+                logpas - logpas_pred).mean() < args.policy_update_early_stop_threshold
             if early_stop:
                 break
         for _ in range(args.update_epochs):
             agent.update_value(*memory.samples())
-        debug_info = memory.get_debug_info(episode=episode, training_start=training_start)
+        debug_info = memory.get_debug_info(
+            episode=episode, training_start=training_start)
         print_debug_info(debug_info, refresh=True)
         debug_infos.append(debug_info)
         memory.reset()
         if episode % args.evaluate_every_n_episode == 0:
-            evaluate(agent, make_env_fn, args.seed, f'{file_name_prefix}_episode{episode}')
+            evaluate(agent, make_env_fn, args.seed,
+                     f'{file_name_prefix}_episode{episode}')
             agent.set_train()
         if debug_info.mean_100_reward > highest_reward:
             highest_reward = debug_info.mean_100_reward
@@ -259,12 +299,14 @@ def train(agent: PPOAgent, make_env_fn: Callable, args: TrainArgs, file_name_pre
         early_stop_cnt += 1
         if early_stop_cnt > args.early_stop_patience:
             break
-        if env._get_consolidation().active_flag == False :
+        if env._get_consolidation() and env._get_consolidation().active_flag == False:
             print("Early stop from swagger")
             break
 
-    pd.DataFrame(debug_infos).to_csv(f'{file_name_prefix}_debug_info.csv', index=False)
+    pd.DataFrame(debug_infos).to_csv(
+        f'{file_name_prefix}_debug_info.csv', index=False)
     mp_env.close()
+
 
 def evaluate(agent: PPOAgent, make_env_fn: Callable, seed: int = 927, file_name: str = 'test'):
     agent.set_eval()
@@ -284,23 +326,24 @@ def evaluate(agent: PPOAgent, make_env_fn: Callable, seed: int = 927, file_name:
         if done:
             break
     history.append((state, None))
-    
-    save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap, srv_cpu_cap, history, f'{file_name}.mp4')
+
+    save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
+                   srv_cpu_cap, history, f'{file_name}.mp4')
+
 
 def start(consolidation):
     seed = 927
 
-    is_trained= consolidation.is_trained
-    #consolidation.name
-    #consolidation.flag
+    is_trained = consolidation.is_trained
+    # consolidation.name
+    # consolidation.flag
 
-    
     def make_env_fn(seed): return Environment(
         api=Testbed(consolidation),
         seed=seed,
     )
 
-    #Openstack Args
+    # Openstack Args
     env_info = make_env_fn(seed)
 
     srv_n = len(env_info._get_srvs())
@@ -311,7 +354,7 @@ def start(consolidation):
 
     device = get_device()
     agent_info = PPOAgentInfo(
-        edge_name = consolidation.name,
+        edge_name=consolidation.name,
         vnf_s_policy_info=PPOPolicyInfo(
             in_dim=VNF_SELECTION_IN_DIM,
             hidden_dim=32,
@@ -362,30 +405,43 @@ def start(consolidation):
     agent = PPOAgent(agent_info)
 
     train_args = TrainArgs(
-        srv_n = srv_n,
-        sfc_n = sfc_n,
-        max_vnf_num = max_vnf_num,
+        srv_n=srv_n,
+        sfc_n=sfc_n,
+        max_vnf_num=max_vnf_num,
         seed=seed,
-        tau = 0.97,
-        gamma = 0.99,
-        n_workers = 8,
-        batch_size = 32,
-        update_epochs = 80,
-        max_episode_num = 100_000,
-        max_episode_steps = max_vnf_num,
-        memory_max_episode_num = 200,
-        evaluate_every_n_episode = 10_000,
-        policy_update_early_stop_threshold = 1e-3,
-        early_stop_patience = 50,
+        tau=0.97,
+        gamma=0.99,
+        n_workers=8,
+        batch_size=32,
+        update_epochs=80,
+        max_episode_num=100_000,
+        max_episode_steps=max_vnf_num,
+        memory_max_episode_num=200,
+        evaluate_every_n_episode=10_000,
+        policy_update_early_stop_threshold=1e-3,
+        early_stop_patience=50,
     )
 
     os.makedirs('result/ppo', exist_ok=True)
 
-    if is_trained :
-        evaluate(agent, make_env_fn, train_args.seed, f'result/ppo/testebed_final')
-    else : 
+    if is_trained:
+        agent.load()
+
+        evaluate(agent, make_env_fn, train_args.seed,
+                 f'result/ppo/testebed_final')
+    else:
+        def make_env_fn(seed): return Environment(
+            api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
+                          srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 512), (1, 1024), (2, 1024), (2, 2048), (4, 2048), (4, 4096), (8, 4096), (8, 8192)]),
+            seed=seed,
+        )
         train(agent, make_env_fn, train_args,
               file_name_prefix=f'result/ppo/testebed')
-        evaluate(agent, make_env_fn, train_args.seed, f'result/ppo/testebed_final')
 
-    
+        def make_env_fn(seed): return Environment(
+            api=Testbed(consolidation),
+            seed=seed,
+        )
+
+        evaluate(agent, make_env_fn, train_args.seed,
+                 f'result/ppo/testebed_final')

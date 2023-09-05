@@ -300,7 +300,7 @@ def train(agent: DQNAgent, make_env_fn: Callable, args: TrainArgs, file_name_pre
             evaluate(agent, make_env_fn, seed=args.seed,
                      file_name=f'{file_name_prefix}_episode{episode}')
             agent.set_train()
-        if env._get_consolidation().active_flag == False :
+        if env._get_consolidation() and env._get_consolidation().active_flag == False :
             print("Early stop from swagger")
             break
 
@@ -405,8 +405,19 @@ def start(consolidation):
                  file_name=f'result/dqn/testbed_final')
 
     else : 
+        def make_env_fn(seed): return Environment(
+            api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
+                          srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 512), (1, 1024), (2, 1024), (2, 2048), (4, 2048), (4, 4096), (8, 4096), (8, 8192)]),
+            seed=seed,
+        )
         train(agent, make_env_fn, train_args,
               file_name_prefix=f'result/dqn/testbed')
+        
+        def make_env_fn(seed): return Environment(
+            api=Testbed(consolidation),
+            seed=seed,
+        )
+
         evaluate(agent, make_env_fn, seed=seed,
               file_name=f'result/dqn/testbed_final')
 

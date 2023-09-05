@@ -7,7 +7,7 @@ import torch
 @dataclass
 class VNF:
     id: int
-    oid: str
+    oid: Optional[str]
     cpu_req: int
     mem_req: int
     sfc_id: int
@@ -17,7 +17,7 @@ class VNF:
 @dataclass
 class Server:
     id: int
-    oid: str
+    oid: Optional[str]
     cpu_cap: int
     mem_cap: int
     cpu_load: int
@@ -36,7 +36,7 @@ class Edge:
 @dataclass
 class SFC:
     id: int
-    oid: str
+    oid: Optional[str]
     vnfs: List[VNF]
 
 
