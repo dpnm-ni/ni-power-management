@@ -25,12 +25,13 @@ from src.utils import (
     convert_state_to_vnf_selection_input,
     convert_state_to_vnf_placement_input,
 )
-from src.const import VNF_PLACEMENT_IN_DIM, VNF_SELECTION_IN_DIM
+from src.const import VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM, VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM
 
 
 @dataclass
 class DQNAgentInfo:
     srv_n: int
+    sfc_n: int
     max_vnf_num: int
     init_epsilon: float
     final_epsilon: float
@@ -45,8 +46,6 @@ class DQNAgentInfo:
 class DQNAgent:
     MAX_MEMORY_LEN = 1_000
     BATCH_SIZE = 32
-    vnf_selection_input_num = VNF_SELECTION_IN_DIM
-    vnf_placement_input_num = VNF_PLACEMENT_IN_DIM
 
     def __init__(self, info: DQNAgentInfo) -> None:
         self.info = info
@@ -69,7 +68,7 @@ class DQNAgent:
     def decide_action(self, state: State, epsilon_sub: float) -> Action:
         possible_actions = get_possible_actions(state, self.info.max_vnf_num)
         vnf_s_in = convert_state_to_vnf_selection_input(
-            state, self.info.max_vnf_num)
+            state, self.info.max_vnf_num, self.info.sfc)
         epsilon = self.get_exploration_rate(epsilon_sub)
         is_random = np.random.uniform() < epsilon
         if is_random:
@@ -89,7 +88,7 @@ class DQNAgent:
                     torch.tensor([0 if len(possible_actions[i]) > 0 else -
                                  torch.inf for i in range(len(possible_actions))]).to(self.device)
                 vnf_s_out = vnf_s_out.max(1)[1]
-        vnf_p_in = convert_state_to_vnf_placement_input(state, int(vnf_s_out))
+        vnf_p_in = convert_state_to_vnf_placement_input(state, int(vnf_s_out), self.info.sfc_n)
         if is_random:
             srv_idxs = []
             for i in range(len(state.srvs)):
@@ -354,7 +353,7 @@ def start(consolidation):
 
     srv_n = len(env_info._get_srvs())
     sfc_n = len(env_info._get_sfcs())
-    max_vnf_num = len(env_info._get_vnfs())
+    max_vnf_num = srv_n * 10
     srv_cpu_cap = env_info._get_edge().cpu_cap
     srv_mem_cap = env_info._get_edge().mem_cap
 
@@ -363,6 +362,7 @@ def start(consolidation):
     agent_info = DQNAgentInfo(
         edge_name = consolidation.name,
         srv_n=srv_n,
+        sfc_n=sfc_n,
         max_vnf_num=max_vnf_num,
         init_epsilon=0.5,
         final_epsilon=0.0,
@@ -370,14 +370,14 @@ def start(consolidation):
         vnf_p_lr=1e-3,
         gamma=0.99,
         vnf_s_model_info=DQNValueInfo(
-            in_dim=VNF_SELECTION_IN_DIM,
+            in_dim=VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
             hidden_dim=32,
             num_heads=4,
             num_blocks=4,
             device=device,
         ),
         vnf_p_model_info=DQNValueInfo(
-            in_dim=VNF_PLACEMENT_IN_DIM,
+            in_dim=VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
             hidden_dim=32,
             num_heads=4,
             num_blocks=4,
@@ -402,16 +402,16 @@ def start(consolidation):
         agent.load()
 
         evaluate(agent, make_env_fn, seed=seed,
-                 file_name=f'result/dqn/testbed_final')
+                 file_name=f'result/dqn/testbed-{agent_info.edge_name}_final')
 
     else : 
         def make_env_fn(seed): return Environment(
             api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
-                          srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 512), (1, 1024), (2, 1024), (2, 2048), (4, 2048), (4, 4096), (8, 4096), (8, 8192)]),
+                          srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)]),
             seed=seed,
         )
         train(agent, make_env_fn, train_args,
-              file_name_prefix=f'result/dqn/testbed')
+              file_name_prefix=f'result/dqn/testbed-{agent_info.edge_name}')
         
         def make_env_fn(seed): return Environment(
             api=Testbed(consolidation),

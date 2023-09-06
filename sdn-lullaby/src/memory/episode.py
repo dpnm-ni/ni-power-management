@@ -9,7 +9,7 @@ import numpy as np
 from src.const import EPS
 from src.dataType import State, Action
 from src.env import MultiprocessEnvironment
-from src.const import VNF_SELECTION_IN_DIM, VNF_PLACEMENT_IN_DIM
+from src.const import VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM
 from src.utils import (
     DebugInfo,
     setup_mp_env,
@@ -28,7 +28,7 @@ class EpisodeMemory:
                  gamma: float, tau: float,
                  memory_max_episode_num: int, max_episode_steps: int,
                  srv_n: int, max_sfc_n: int, max_vnf_num: int,
-                 vnf_s_in_dim: int = VNF_SELECTION_IN_DIM, vnf_p_in_dim: int = VNF_PLACEMENT_IN_DIM,
+                 vnf_s_in_dim: int = VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, vnf_p_in_dim: int = VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM,
                 ):
         setup_mp_env()
         self.n_workers = n_workers
@@ -65,11 +65,11 @@ class EpisodeMemory:
         while len(self.episode_steps[self.episode_steps > 0]) < self.memory_max_episode_num / 2:
             p_actions = [get_possible_actions(state, self.max_vnf_num) for state in states]
             with torch.no_grad():
-                vnf_s_ins = torch.stack([convert_state_to_vnf_selection_input(state, self.max_vnf_num) for state in states], dim=0)
+                vnf_s_ins = torch.stack([convert_state_to_vnf_selection_input(state, self.max_vnf_num, self.max_sfc_n) for state in states], dim=0)
                 vnf_s_outs = agent.vnf_s_policy(vnf_s_ins).detach().cpu()
                 vnf_s_outs = vnf_s_outs * torch.tensor([[True if len(p_actions[i][vnf_id]) > 0 else False for vnf_id in range(self.max_vnf_num)] for i in range(self.n_workers)])
                 vnf_s_actions, vnf_s_logpas, vnf_s_is_exploratory = get_info_from_logits(vnf_s_outs)
-                vnf_p_ins = torch.stack([convert_state_to_vnf_placement_input(state, vnf_s_action) for state, vnf_s_action in zip(states, vnf_s_actions)], dim=0)
+                vnf_p_ins = torch.stack([convert_state_to_vnf_placement_input(state, vnf_s_action, self.max_sfc_n) for state, vnf_s_action in zip(states, vnf_s_actions)], dim=0)
                 vnf_p_outs = agent.vnf_p_policy(vnf_p_ins).detach().cpu()
                 vnf_p_outs = vnf_p_outs * torch.tensor([[True if srv_id in p_actions[i][int(vnf_s_actions[i])] else False for srv_id in range(self.srv_n)] for i in range(self.n_workers)])
                 vnf_p_actions, vnf_p_logpas, vnf_p_is_exploratory = get_info_from_logits(vnf_p_outs)
@@ -91,7 +91,7 @@ class EpisodeMemory:
                 next_values = torch.zeros((self.n_workers, 2))
                 next_p_actions = [get_possible_actions(next_state, self.max_vnf_num) for next_state in next_states]
                 with torch.no_grad():
-                    next_vnf_s_ins = torch.stack([convert_state_to_vnf_selection_input(next_state, self.max_vnf_num) for next_state in next_states], dim=0)
+                    next_vnf_s_ins = torch.stack([convert_state_to_vnf_selection_input(next_state, self.max_vnf_num, self.max_sfc_n) for next_state in next_states], dim=0)
                     vnf_s_values = agent.vnf_s_value(next_vnf_s_ins).detach().cpu()
                     vnf_s_logits = agent.vnf_s_policy(next_vnf_s_ins).detach().cpu()
                     vnf_s_logits = vnf_s_logits * torch.tensor([[True if len(next_p_actions[i][vnf_id]) > 0 else False for vnf_id in range(self.max_vnf_num)] for i in range(self.n_workers)])
@@ -99,7 +99,7 @@ class EpisodeMemory:
                     for vnf_s_logit in vnf_s_logits:
                         vnf_s_actions.append(torch.argmax(vnf_s_logit[vnf_s_logit != 0]))
                     vnf_s_actions = torch.tensor(vnf_s_actions, dtype=torch.int32)
-                    next_vnf_p_ins = torch.stack([convert_state_to_vnf_placement_input(next_state, vnf_s_action) for next_state, vnf_s_action in zip(next_states, vnf_s_actions)], dim=0)
+                    next_vnf_p_ins = torch.stack([convert_state_to_vnf_placement_input(next_state, vnf_s_action, self.max_sfc_n) for next_state, vnf_s_action in zip(next_states, vnf_s_actions)], dim=0)
                     vnf_p_values = agent.vnf_p_value(next_vnf_p_ins).detach().cpu()
                     next_values[idx_done] = torch.stack([vnf_s_values, vnf_p_values], dim=1)[idx_done]
             states = next_states

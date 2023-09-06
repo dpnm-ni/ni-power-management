@@ -185,7 +185,7 @@ class Testbed(Api):
                     id=self.vnf_id_to_index[item.id],
                     oid=item.id,
                     cpu_req=vnfs_spec.n_cores,
-                    mem_req=vnfs_spec.ram_mb,
+                    mem_req=vnfs_spec.ram_mb / 1024,
                     sfc_id= sfc_id,  
                     srv_id=self.srv_id_to_index[item.node_id]
                 )
@@ -200,9 +200,9 @@ class Testbed(Api):
                     id=self.srv_id_to_index[server_data.id],
                     oid=server_data.id,
                     cpu_cap=server_data.n_cores,
-                    mem_cap=server_data.ram_mb,
+                    mem_cap=server_data.ram_mb / 1024,
                     cpu_load=server_data.n_cores - server_data.n_cores_free,
-                    mem_load=server_data.ram_mb - server_data.ram_free_mb,
+                    mem_load=(server_data.ram_mb - server_data.ram_free_mb) / 1024,
                     vnfs=vnf_objects
                 )
                 self.srvs.append(server)

@@ -1,12 +1,13 @@
 import os
 
 import torch
+import torch.nn.functional as F
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass
 
 from src.dataType import State, Action
 from src.animator.animator import Animator
-from src.const import VNF_SELECTION_IN_DIM, VNF_PLACEMENT_IN_DIM
+from src.const import VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM
 
 
 @dataclass
@@ -50,27 +51,40 @@ def print_debug_info(debug_info: DebugInfo, refresh: bool = False):
     if refresh:
         print('\x1b[2K' + debug_msg, flush=True)
 
-def convert_state_to_vnf_selection_input(state: State, max_vnf_num: int) -> torch.Tensor:
-    vnf_selection_input = torch.zeros(max_vnf_num, VNF_SELECTION_IN_DIM, dtype=torch.float32)
+def convert_state_to_vnf_selection_input(state: State, max_vnf_num: int, sfc_num: int) -> torch.Tensor:
+    vnf_selection_input = torch.zeros(max_vnf_num, VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + sfc_num, dtype=torch.float32)
 
     for vnf in state.vnfs:
-        vnf_selection_input[vnf.id] = torch.tensor([
-            vnf.cpu_req, vnf.mem_req, vnf.sfc_id,
-            state.srvs[vnf.srv_id].cpu_cap, state.srvs[vnf.srv_id].mem_cap,
-            state.srvs[vnf.srv_id].cpu_load, state.srvs[vnf.srv_id].mem_load,
-            state.edge.cpu_cap, state.edge.mem_cap,
-            state.edge.cpu_load, state.edge.mem_load,
-        ])
+        vnf_selection_input[vnf.id] = torch.cat(
+            (
+                F.one_hot(torch.tensor([vnf.sfc_id]), num_classes=sfc_num).squeeze(),
+                torch.tensor([
+                    vnf.cpu_req, vnf.mem_req,
+                    state.srvs[vnf.srv_id].cpu_cap, state.srvs[vnf.srv_id].mem_cap,
+                    state.srvs[vnf.srv_id].cpu_load, state.srvs[vnf.srv_id].mem_load,
+                    state.edge.cpu_cap, state.edge.mem_cap,
+                    state.edge.cpu_load, state.edge.mem_load,
+                ]),
+            ), 
+            dim=0,
+        )
+        
     return vnf_selection_input
 
-def convert_state_to_vnf_placement_input(state: State, vnf_id: int) -> torch.Tensor:
-    vnf_placement_input = torch.zeros(len(state.srvs), VNF_PLACEMENT_IN_DIM, dtype=torch.float32)
+def convert_state_to_vnf_placement_input(state: State, vnf_id: int, sfc_num: int) -> torch.Tensor:
+    vnf_placement_input = torch.zeros(len(state.srvs), VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + sfc_num, dtype=torch.float32)
     for srv in state.srvs:
-        vnf_placement_input[srv.id] = torch.tensor([
-            srv.cpu_cap, srv.mem_cap, srv.cpu_load, srv.mem_load,
-            state.vnfs[vnf_id].cpu_req, state.vnfs[vnf_id].mem_req, state.vnfs[vnf_id].sfc_id,
-            state.edge.cpu_cap, state.edge.mem_cap, state.edge.cpu_load, state.edge.mem_load
-        ])
+        vnf_placement_input[srv.id] = torch.cat(
+            (
+                F.one_hot(torch.tensor([state.vnfs[vnf_id].sfc_id]), num_classes = sfc_num).squeeze(),
+                torch.tensor([
+                    state.vnfs[vnf_id].cpu_req, state.vnfs[vnf_id].mem_req,
+                    srv.cpu_cap, srv.mem_cap, srv.cpu_load, srv.mem_load,
+                    state.edge.cpu_cap, state.edge.mem_cap, state.edge.cpu_load, state.edge.mem_load
+                ]),
+            ), 
+            dim=0,
+        )
     return vnf_placement_input
 
 def get_possible_actions(state: State, max_vnf_num: int) -> Dict[int, List[int]]:
@@ -91,7 +105,7 @@ def get_possible_actions(state: State, max_vnf_num: int) -> Dict[int, List[int]]
         vnf = state.vnfs[vnf_idx]
         for srv in state.srvs:
             # 이미 설치된 srv로 이동하는 action 막기
-            if vnf.srv_id == srv.id: continue
+            # if vnf.srv_id == srv.id: continue (* WARNING: 사실 종료를 의미하는 것으로 쓰기 위함)
             # capacity 확인
             if srv.cpu_cap - srv.cpu_load < vnf.cpu_req or srv.mem_cap - srv.mem_load < vnf.mem_req: continue
             possible_actions[vnf.id].append(srv.id)

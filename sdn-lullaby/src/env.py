@@ -60,7 +60,7 @@ class Environment:
         sfc_n = len(state.sfcs)
         next_zero_util_cnt = get_zero_util_cnt(next_state)
         next_sfc_cnt_in_same_srv = get_sfc_cnt_in_same_srv(next_state)
-        reward = next_zero_util_cnt / srv_n + next_sfc_cnt_in_same_srv / sfc_n
+        reward = (next_zero_util_cnt / srv_n) * 0.9 + (next_sfc_cnt_in_same_srv / sfc_n) * 0.1
         return reward
 
     def _get_state(self) -> State:

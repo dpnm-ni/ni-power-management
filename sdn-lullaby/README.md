@@ -54,8 +54,8 @@ The left gif displays the results of the initial (untrained) model, while the ri
 ### 1. Install python packages
 
 ```bash
-conda create --name vnf-consolidation --file requirements.txt -c pytorch -c conda-forge -c anaconda
-conda activate vnf-consolidation
+conda create --name sdn-lullaby --file requirements.txt -c pytorch -c nvidia -c conda-forge -c anaconda
+conda activate sdn-lullaby
 ```
 
 ### 2. Run agent code
