@@ -68,7 +68,7 @@ class DQNAgent:
     def decide_action(self, state: State, epsilon_sub: float) -> Action:
         possible_actions = get_possible_actions(state, self.info.max_vnf_num)
         vnf_s_in = convert_state_to_vnf_selection_input(
-            state, self.info.max_vnf_num, self.info.sfc)
+            state, self.info.max_vnf_num, self.info.sfc_n)
         epsilon = self.get_exploration_rate(epsilon_sub)
         is_random = np.random.uniform() < epsilon
         if is_random:
@@ -76,9 +76,6 @@ class DQNAgent:
             for i in range(len(state.vnfs)):
                 if len(possible_actions[i]) > 0:
                     vnf_idxs.append(i)
-            print("state : ", state)
-            print("possible action : ", possible_actions)
-            print("vnf_idxs : ", vnf_idxs)
             vnf_s_out = torch.tensor(np.random.choice(vnf_idxs, 1))
         else:
             self.vnf_selection_model.eval()
@@ -353,7 +350,7 @@ def start(consolidation):
 
     srv_n = len(env_info._get_srvs())
     sfc_n = len(env_info._get_sfcs())
-    max_vnf_num = srv_n * 10
+    max_vnf_num = 20
     srv_cpu_cap = env_info._get_edge().cpu_cap
     srv_mem_cap = env_info._get_edge().mem_cap
 
@@ -407,7 +404,8 @@ def start(consolidation):
     else : 
         def make_env_fn(seed): return Environment(
             api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
-                          srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)]),
+                          srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],
+                          srvs=Testbed(consolidation).srvs),
             seed=seed,
         )
         train(agent, make_env_fn, train_args,
@@ -419,7 +417,7 @@ def start(consolidation):
         )
 
         evaluate(agent, make_env_fn, seed=seed,
-              file_name=f'result/dqn/testbed_final')
+              file_name=f'result/dqn/testbed-{agent_info.edge_name}_final')
 
     agent.save()
 

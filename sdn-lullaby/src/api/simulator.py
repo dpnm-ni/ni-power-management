@@ -1,6 +1,7 @@
 from typing import List
 
 import numpy as np
+from copy import deepcopy
 
 from src.api.api import Api
 from src.dataType import Edge, Server, VNF, SFC
@@ -20,7 +21,7 @@ class Simulator(Api):
     vnfs: List[VNF]
     sfcs: List[SFC]
 
-    def __init__(self, srv_n: int = 4, srv_cpu_cap: int = 8, srv_mem_cap: int = 32, max_vnf_num: int = 100, sfc_n: int = 4, max_edge_load: float = 0.3, vnf_types: List[tuple] = DEFAULT_VNF_TYPE) -> None:
+    def __init__(self, srv_n: int = 4, srv_cpu_cap: int = 8, srv_mem_cap: int = 32, max_vnf_num: int = 100, sfc_n: int = 4, max_edge_load: float = 0.3, vnf_types: List[tuple] = DEFAULT_VNF_TYPE, srvs: List[Server] = []) -> None:
         """Intialize Simulator
 
         Args:
@@ -42,10 +43,10 @@ class Simulator(Api):
             cpu_load=0,
             mem_load=0
         )
-        self.srvs = []
+        self.srvs = deepcopy(srvs)
         self.vnfs = []
         self.sfcs = []
-        for i in range(srv_n):
+        for i in range(srv_n - len(srvs)):
             self.srvs.append(Server(
                 id=i,
                 oid=None,
@@ -55,6 +56,7 @@ class Simulator(Api):
                 mem_load=0,
                 vnfs=[],
             ))
+        
 
     def reset(self) -> None:
         """Generate random VNFs and put them into servers

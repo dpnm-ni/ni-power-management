@@ -350,7 +350,7 @@ def start(consolidation):
 
     srv_n = len(env_info._get_srvs())
     sfc_n = len(env_info._get_sfcs())
-    max_vnf_num = 10
+    max_vnf_num = 20
     srv_cpu_cap = env_info._get_edge().cpu_cap
     srv_mem_cap = env_info._get_edge().mem_cap
 
@@ -436,7 +436,8 @@ def start(consolidation):
     else:
         def make_env_fn(seed): return Environment(
             api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
-                          srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)]),
+                          srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],
+                          srvs=Testbed(consolidation).srvs),
             seed=seed,
         )
         train(agent, make_env_fn, train_args,
