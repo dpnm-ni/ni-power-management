@@ -2,7 +2,7 @@ import os
 import time
 from dataclasses import dataclass
 from typing import List, Dict, Callable
-import datetime
+from datetime import datetime
 
 import torch
 import numpy as np
@@ -342,7 +342,7 @@ def extract_best_policy(agent: DQNAgent, make_env_fn: Callable, seed: int = 927)
     max_r = -1
     max_idx = 0
     for idx in range(env.max_episode_steps * 2):
-        action = agent.decide_action(state)
+        action = agent.decide_action(state, 0)
         next_state, _, done = env.step(action)
         r = env._calc_reward(True, state, next_state, True)
         if max_r < r:
