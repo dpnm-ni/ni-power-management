@@ -20,8 +20,8 @@ class Environment:
 
     # return next_state, reward, done
     def step(self, action: Action) -> Tuple[State, int, bool]:
-        self._elapsed_steps += 1
         done = self._elapsed_steps >= self.max_episode_steps
+        self._elapsed_steps += 1
         state = self._get_state()
         is_moved = self._move_vnf(action.vnf_id, action.srv_id)
         next_state = self._get_state()
@@ -30,7 +30,7 @@ class Environment:
 
     def reset(self) -> State:
         self.api.reset()
-        self._elapsed_steps = 0
+        self._elapsed_steps = 1
         self.init_state = self._get_state()
         self.max_episode_steps = len(self.init_state.vnfs)
         return self.init_state

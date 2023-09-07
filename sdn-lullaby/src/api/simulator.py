@@ -83,7 +83,7 @@ class Simulator(Api):
         # 최대한 각 서버에 골고루 분배
         sfcs = [SFC(id=i, oid=None, vnfs=[]) for i in range(self.sfc_n)]
         vnf_cnt = 0
-        for i in range(self.sfc_n):
+        for i in range(min(self.sfc_n, self.max_vnf_num)):
             srv_id = i % len(self.srvs)
             vnf = VNF(
                 id=i,

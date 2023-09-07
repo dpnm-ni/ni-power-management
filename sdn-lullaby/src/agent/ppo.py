@@ -350,7 +350,7 @@ def start(consolidation):
 
     srv_n = len(env_info._get_srvs())
     sfc_n = len(env_info._get_sfcs())
-    max_vnf_num = 20
+    max_vnf_num = len(env_info._get_vnfs())
     srv_cpu_cap = env_info._get_edge().cpu_cap
     srv_mem_cap = env_info._get_edge().mem_cap
 

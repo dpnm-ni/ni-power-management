@@ -237,7 +237,7 @@ def train(agent: DQNAgent, make_env_fn: Callable, args: TrainArgs, file_name_pre
         }
         max_episode_len = env.max_episode_steps
         epsilon_sub = (episode / args.max_episode_num) * 0.5
-        for step in range(max_episode_len):
+        for step in range(1, max_episode_len + 1):
             action = agent.decide_action(state, epsilon_sub)
             history.append((state, action))
             next_state, reward, done = env.step(action)
@@ -350,7 +350,7 @@ def start(consolidation):
 
     srv_n = len(env_info._get_srvs())
     sfc_n = len(env_info._get_sfcs())
-    max_vnf_num = 20
+    max_vnf_num = len(env_info._get_vnfs())
     srv_cpu_cap = env_info._get_edge().cpu_cap
     srv_mem_cap = env_info._get_edge().mem_cap
 
