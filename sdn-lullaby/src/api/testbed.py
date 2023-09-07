@@ -110,7 +110,6 @@ class Testbed(Api):
     sfcs: List[SFC]
 
     def __init__(self,consolidation) -> None:
-        print("initializeing testbed")
         self.node_ids = consolidation.nodes
         self.consolidation = consolidation
         self.srv_n = len(self.node_ids)

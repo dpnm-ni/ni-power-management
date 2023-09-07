@@ -2,6 +2,7 @@ import os
 import time
 from dataclasses import dataclass
 from typing import List, Dict, Callable
+import datetime
 
 import torch
 import numpy as np
@@ -330,6 +331,51 @@ def evaluate(agent: DQNAgent, make_env_fn: Callable, seed: int = 927, file_name:
         history=history, path=f'{file_name}.mp4',
     )
 
+def extract_best_policy(agent: DQNAgent, make_env_fn: Callable, seed: int = 927):
+    agent.set_eval()
+    env = make_env_fn(seed)
+    
+    state = env.reset()
+    policy = []
+    max_r = -1
+    max_idx = 0
+    for idx in range(env.max_episode_steps * 2):
+        action = agent.decide_action(state)
+        next_state, _, done = env.step(action)
+        r = env._calc_reward(True, state, next_state, True)
+        if max_r < r:
+            max_r = r
+            max_idx = idx
+        state = next_state
+        policy.append(action)
+        if done:
+            break
+    policy = policy[:max_idx+1]
+    return policy
+
+def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927):
+    env = make_env_fn(seed)
+    state = env.reset()
+    # for drawing graph
+    srv_n = env.api.srv_n
+    sfc_n = env.api.sfc_n
+    max_vnf_num = env.api.max_vnf_num
+    srv_cpu_cap = env.api.srv_cpu_cap
+    srv_mem_cap = env.api.srv_mem_cap
+    history = []
+    for action in policy:
+        history.append((state, action))
+        state, _, done = env.step(action)
+        if done:
+            break
+    history.append((state, None))
+
+    # Get the current time
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
+                   srv_cpu_cap, history, f'final_{current_time}.mp4')
+
 
 def start(consolidation):
     seed = 927  
@@ -340,13 +386,13 @@ def start(consolidation):
     #consolidation.flag
 
 
-    def make_env_fn(seed): return Environment(
+    def make_testbed_env_fn(seed): return Environment(
         api=Testbed(consolidation),
         seed=seed,
     )
 
     #Openstack Args
-    env_info = make_env_fn(seed)
+    env_info = make_testbed_env_fn(seed)
 
     srv_n = len(env_info._get_srvs())
     sfc_n = len(env_info._get_sfcs())
@@ -395,33 +441,30 @@ def start(consolidation):
 
     os.makedirs('result/dqn', exist_ok=True)
 
-    if is_trained :
+    if is_trained:
         agent.load()
-
-        evaluate(agent, make_env_fn, seed=seed,
-                 file_name=f'result/dqn/testbed-{agent_info.edge_name}_final')
-
-    else : 
-        def make_env_fn(seed): return Environment(
+    else:
+        def make_train_env_fn(seed): return Environment(
             api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
                           srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],
                           srvs=Testbed(consolidation).srvs),
             seed=seed,
         )
-        train(agent, make_env_fn, train_args,
-              file_name_prefix=f'result/dqn/testbed-{agent_info.edge_name}')
-        
-        def make_env_fn(seed): return Environment(
-            api=Testbed(consolidation),
-            seed=seed,
-        )
+        train(agent, make_train_env_fn, train_args,
+              file_name_prefix=f'result/dqn/testebed-{agent_info.edge_name}')
+        agent.save()
+    def make_policy_extractor_env_fn(seed): return Environment(
+        api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
+            srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],
+            srvs=Testbed(consolidation).srvs
+        ),
+        seed=seed,
+    )
 
-        evaluate(agent, make_env_fn, seed=seed,
-              file_name=f'result/dqn/testbed-{agent_info.edge_name}_final')
+    # extract optimal policy
+    # in this system we don't know what is the best step size.
+    # so, we first simulate testbed environment and extract action list(policy).
+    policy = extract_best_policy(agent, make_policy_extractor_env_fn, seed) 
 
-    agent.save()
-
-
-    return
-
-
+    # run upper policy in testbed
+    run_policy(make_testbed_env_fn, policy)
