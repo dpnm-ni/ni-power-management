@@ -28,6 +28,11 @@ from src.utils import (
 )
 from src.const import VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM, VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM
 
+DEFAULT_RESULT_PATH_PREFIX = 'result/dqn/'
+DEFAULT_PARAMETER_PATH_PREFIX = 'param/dqn/'
+
+os.makedirs(DEFAULT_RESULT_PATH_PREFIX, exist_ok=True)
+os.makedirs(DEFAULT_PARAMETER_PATH_PREFIX, exist_ok=True)
 
 @dataclass
 class DQNAgentInfo:
@@ -182,17 +187,14 @@ class DQNAgent:
         self.vnf_placement_optimzer.step()
 
     def save(self) -> None:
-        os.makedirs("param/dqn", exist_ok=True)
-        torch.save(self.vnf_selection_model.state_dict(),
-                   "param/dqn/"+self.edge_name+"_vnf_selection_model.pth")
-        torch.save(self.vnf_placement_model.state_dict(),
-                   "param/dqn/"+self.edge_name+"_vnf_placement_model.pth")
+        torch.save(self.vnf_selection_model.state_dict(), f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}-{self.info.max_vnf_num}_vnf_selection_model.pth')
+        torch.save(self.vnf_placement_model.state_dict(), f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}-{self.info.max_vnf_num}_vnf_placement_model.pth')
 
     def load(self) -> None:
-        self.vnf_selection_model.load_state_dict(
-            torch.load("param/dqn/"+self.edge_name+"_vnf_selection_model.pth"))
-        self.vnf_placement_model.load_state_dict(
-            torch.load("param/dqn/"+self.edge_name+"_vnf_placement_model.pth"))
+        self.vnf_selection_model.load_state_dict(torch.load(f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}-{self.info.max_vnf_num}_vnf_selection_model.pth'))
+        self.vnf_p_policy.eval()
+        self.vnf_placement_model.load_state_dict(torch.load(f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}-{self.info.max_vnf_num}_vnf_placement_model.pth'))
+        self.vnf_p_policy.eval()
 
     def set_train(self) -> None:
         self.vnf_selection_model.train()
@@ -374,10 +376,10 @@ def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927):
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
-                   srv_cpu_cap, history, f'final_{current_time}.mp4')
+                   srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}final_{current_time}.mp4')
 
 
-def start(consolidation):
+def start(consolidation, vnf_num):
     seed = 927  
     
 
@@ -396,7 +398,7 @@ def start(consolidation):
 
     srv_n = len(env_info._get_srvs())
     sfc_n = len(env_info._get_sfcs())
-    max_vnf_num = len(env_info._get_vnfs())
+    max_vnf_num = len(env_info._get_vnfs()) if vnf_num == 0 else vnf_num
     srv_cpu_cap = env_info._get_edge().cpu_cap
     srv_mem_cap = env_info._get_edge().mem_cap
 
@@ -439,8 +441,6 @@ def start(consolidation):
         evaluate_every_n_episode=500
     )
 
-    os.makedirs('result/dqn', exist_ok=True)
-
     if is_trained:
         agent.load()
     else:
@@ -451,7 +451,7 @@ def start(consolidation):
             seed=seed,
         )
         train(agent, make_train_env_fn, train_args,
-              file_name_prefix=f'result/dqn/testebed-{agent_info.edge_name}')
+              file_name_prefix=f'{DEFAULT_RESULT_PATH_PREFIX}testebed-{agent_info.edge_name}-{max_vnf_num}')
         agent.save()
     def make_policy_extractor_env_fn(seed): return Environment(
         api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,

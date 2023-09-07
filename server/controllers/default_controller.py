@@ -6,9 +6,8 @@ from consolidation import *
 from server.models.consolidation_info import ConsolidationInfo
 
 
-def learn_consolidation(mode="DQN"):
-
-    do_learn_consolidation(mode)
+def learn_consolidation(mode="DQN", vnf_num=0):
+    do_learn_consolidation(mode, vnf_num)
     return "sucess"
 
 

@@ -25,6 +25,11 @@ paths:
         description: "AI model"
         required: false
         type: "string"
+      - name: "vnf_num"
+        in: "query"
+        description: "VNF Number for training"
+        required: false
+        type: "integer"
       responses:
         "200":
           description: "Success."

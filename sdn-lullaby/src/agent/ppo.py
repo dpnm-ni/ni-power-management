@@ -28,11 +28,18 @@ from src.utils import (
 torch.backends.cudnn.enabled = False
 torch.cuda.is_available = lambda: False
 
+DEFAULT_RESULT_PATH_PREFIX = 'result/ppo/'
+DEFAULT_PARAMETER_PATH_PREFIX = 'param/ppo/'
+
+os.makedirs(DEFAULT_RESULT_PATH_PREFIX, exist_ok=True)
+os.makedirs(DEFAULT_PARAMETER_PATH_PREFIX, exist_ok=True)
+
 
 @dataclass
 class PPOAgentInfo:
     srv_n: int
     sfc_n: int
+    max_vnf_num: int
     vnf_s_policy_info: PPOPolicyInfo
     vnf_p_policy_info: PPOPolicyInfo
     vnf_s_value_info: PPOValueInfo
@@ -212,18 +219,13 @@ class PPOAgent:
         return torch.stack([vnf_s_logpas_pred, vnf_p_logpas_pred], dim=1)
 
     def save(self) -> None:
-        os.makedirs('param/ppo', exist_ok=True)
-        torch.save(self.vnf_p_policy.state_dict(), 'param/ppo/' +
-                   self.edge_name+'_vnf_p_policy.pt')
-        torch.save(self.vnf_s_policy.state_dict(), 'param/ppo/' +
-                   self.edge_name+'_vnf_s_policy.pt')
+        torch.save(self.vnf_p_policy.state_dict(), f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}_{self.info.max_vnf_num}_vnf_p_policy.pt')
+        torch.save(self.vnf_s_policy.state_dict(), f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}_{self.info.max_vnf_num}_vnf_s_policy.pt')
 
     def load(self) -> None:
-        self.vnf_p_policy.load_state_dict(torch.load(
-            'param/ppo/'+self.edge_name+'_vnf_p_policy.pt'))
+        self.vnf_p_policy.load_state_dict(torch.load(f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}_{self.info.max_vnf_num}_vnf_p_policy.pt'))
         self.vnf_p_policy.eval()
-        self.vnf_s_policy.load_state_dict(torch.load(
-            'param/ppo/'+self.edge_name+'_vnf_s_policy.pt'))
+        self.vnf_s_policy.load_state_dict(torch.load(f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}_{self.info.max_vnf_num}_vnf_s_policy.pt'))
         self.vnf_p_policy.eval()
 
     def set_train(self) -> None:
@@ -376,10 +378,10 @@ def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927):
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
     save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
-                   srv_cpu_cap, history, f'final_{current_time}.mp4')
+                   srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}final_{current_time}.mp4')
 
 
-def start(consolidation):
+def start(consolidation, vnf_num):
     seed = 927
 
     is_trained = consolidation.is_trained
@@ -396,7 +398,7 @@ def start(consolidation):
 
     srv_n = len(env_info._get_srvs())
     sfc_n = len(env_info._get_sfcs())
-    max_vnf_num = len(env_info._get_vnfs())
+    max_vnf_num = len(env_info._get_vnfs()) if vnf_num == 0 else vnf_num
     srv_cpu_cap = env_info._get_edge().cpu_cap
     srv_mem_cap = env_info._get_edge().mem_cap
 
@@ -404,6 +406,7 @@ def start(consolidation):
     agent_info = PPOAgentInfo(
         srv_n=srv_n,
         sfc_n=sfc_n,
+        max_vnf_num=max_vnf_num,
         edge_name=consolidation.name,
         vnf_s_policy_info=PPOPolicyInfo(
             in_dim=VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
@@ -472,8 +475,6 @@ def start(consolidation):
         early_stop_patience=50,
     )
 
-    os.makedirs('result/ppo', exist_ok=True)
-
     if is_trained:
         agent.load()
     else:
@@ -484,7 +485,7 @@ def start(consolidation):
             seed=seed,
         )
         train(agent, make_train_env_fn, train_args,
-              file_name_prefix=f'result/ppo/testebed-{agent_info.edge_name}')
+              file_name_prefix=f'{DEFAULT_RESULT_PATH_PREFIX}testebed-{agent_info.edge_name}-{max_vnf_num}')
     def make_policy_extractor_env_fn(seed): return Environment(
         api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
             srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],

@@ -269,7 +269,7 @@ def get_busy_vnf_info():
     return migrating_vnfs
 
 
-def do_learn_consolidation(mode):
+def do_learn_consolidation(mode, vnf_num):
 
     network_info = check_network_topology()
     #ConsolidationInfo(name,flag,model,edge_name,nodes,is_trained)
@@ -280,9 +280,9 @@ def do_learn_consolidation(mode):
         response = ConsolidationInfo(key,mode,value,False) # edge 단위로 Consolidation을 생성
         consolidation_list.append(response)
         if mode=="DQN" :
-            DQN.start(response)
+            DQN.start(response, vnf_num)
         else :
-            PPO.start(response)
+            PPO.start(response, vnf_num)
         consolidation_list.remove(response)
     return
 
