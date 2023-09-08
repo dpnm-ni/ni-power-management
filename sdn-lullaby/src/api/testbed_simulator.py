@@ -1,20 +1,10 @@
 from typing import List
 
-import numpy as np
-
 from src.api.api import Api
 from src.dataType import Edge, Server, VNF, SFC
-import ni_mon_client, ni_nfvo_client
-from ni_mon_client.rest import ApiException
-from ni_nfvo_client.rest import ApiException
-import datetime
-import json
-import time
-import requests
-import paramiko
-import subprocess
+
 from config import cfg
-from multiprocessing.pool import ThreadPool
+import ni_mon_client, ni_nfvo_client
 from server.models.consolidation_info import ConsolidationInfo
 
 # OpenStack Parameters
@@ -69,41 +59,9 @@ def get_sfcs():
     return response
 
 
-def get_ssh(ssh_ip, ssh_username, ssh_password):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(ssh_ip, username=ssh_username, password=ssh_password)
-    return ssh
-
-
-def source_openrc(ctrl_ssh):
-    command = "source /opt/stack/devstack/openrc admin demo"
-    stdin, stdout, stderr = ctrl_ssh.exec_command(command)
-
-    return
-
-
-# Call OpenStack live migration API to migrate the target VM to the selected dst host.
-def live_migrate(vnf_id, dst_node):
-    migrating_vnfs.append(vnf_id)
-
-    ctrl_ssh = get_ssh(cfg["openstack_controller"]["ip"], cfg["openstack_controller"]["username"],
-                       cfg["openstack_controller"]["password"])
-    source_openrc(ctrl_ssh)
-
-    command = "nova live-migration {} {}".format(get_vnf_info(vnf_id).name, dst_node)
-    # FIXME: check timeout is needed indeed
-    stdin, stdout, stderr = ctrl_ssh.exec_command(command, timeout=120)
-    print("migrate readout :", stdout.readlines())
-
-    migrating_vnfs.remove(vnf_id)
-
-    return
-
-
 #Get data from openstack
 
-class Testbed(Api):
+class TestbedSimulator(Api):
     edge: Edge
     srvs: List[Server]
     vnfs: List[VNF]
@@ -240,8 +198,47 @@ class Testbed(Api):
         self.srv_cpu_cap = self.edge.cpu_cap
         self.srv_mem_cap = self.edge.mem_cap
 
-    # must implemented for migrating
+
     def move_vnf(self, vnf_id: int, srv_id: int) -> bool:
+
+
+        # vnf_id가 존재하는지 확인
+        target_vnf = None
+        for srv in self.srvs:
+            for vnf in srv.vnfs:
+                if vnf.id == vnf_id:
+                    target_vnf = vnf
+                    break
+            if target_vnf is not None:
+                break
+        if target_vnf is None:
+            return False
+        # srv_id가 존재하는지 확인
+        if srv_id >= len(self.srvs):
+            return False
+        # 해당 srv에 이미 vnf가 존재하는지 확인
+        for vnf in self.srvs[srv_id].vnfs:
+            if vnf.id == vnf_id:
+                return False
+        # capacity 확인
+        srv_remain_cpu_cap = self.srvs[srv_id].cpu_cap - self.srvs[srv_id].cpu_load
+        srv_remain_mem_cap = self.srvs[srv_id].mem_cap - self.srvs[srv_id].mem_load
+        if srv_remain_cpu_cap < target_vnf.cpu_req or srv_remain_mem_cap <target_vnf.mem_req:
+            return False
+        # vnf 검색 및 이동 (없으면 False 리턴)
+        for srv in self.srvs:
+            for vnf in srv.vnfs:
+                if vnf.id == vnf_id:                 
+                    vnf.srv_id = srv_id
+                    self.srvs[srv_id].vnfs.append(vnf)
+                    self.srvs[srv_id].cpu_load += vnf.cpu_req
+                    self.srvs[srv_id].mem_load += vnf.mem_req
+
+                    srv.vnfs.remove(vnf)
+                    srv.cpu_load -= vnf.cpu_req
+                    srv.mem_load -= vnf.mem_req
+
+                    return True
         return False
 
     def get_srvs(self) -> List[Server]:

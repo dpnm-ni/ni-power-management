@@ -13,6 +13,7 @@ from src.model.dqn import DQNValueInfo, DQNValue
 from src.env import Environment
 from src.api.simulator import Simulator
 from src.api.testbed import Testbed
+from src.api.testbed_simulator import TestbedSimulator
 from src.memory.replay import ReplayMemory
 from src.dataType import State, Action, Scene
 from src.utils import (
@@ -454,10 +455,7 @@ def start(consolidation, vnf_num):
               file_name_prefix=f'{DEFAULT_RESULT_PATH_PREFIX}testebed-{agent_info.edge_name}-{max_vnf_num}')
         agent.save()
     def make_policy_extractor_env_fn(seed): return Environment(
-        api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
-            srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],
-            srvs=Testbed(consolidation).srvs
-        ),
+        api=TestbedSimulator(consolidation),
         seed=seed,
     )
 

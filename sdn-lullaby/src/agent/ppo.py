@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from src.dataType import State, Action
 from src.api.simulator import Simulator
 from src.api.testbed import Testbed
+from src.api.testbed_simulator import TestbedSimulator
 from src.memory.episode import EpisodeMemory
 from src.env import Environment, MultiprocessEnvironment
 from src.const import VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM
@@ -486,11 +487,9 @@ def start(consolidation, vnf_num):
         )
         train(agent, make_train_env_fn, train_args,
               file_name_prefix=f'{DEFAULT_RESULT_PATH_PREFIX}testebed-{agent_info.edge_name}-{max_vnf_num}')
+
     def make_policy_extractor_env_fn(seed): return Environment(
-        api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
-            srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],
-            srvs=Testbed(consolidation).srvs
-        ),
+        api=TestbedSimulator(consolidation),
         seed=seed,
     )
 
