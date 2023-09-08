@@ -227,7 +227,7 @@ class PPOAgent:
         self.vnf_p_policy.load_state_dict(torch.load(f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}_{self.info.max_vnf_num}_vnf_p_policy.pt'))
         self.vnf_p_policy.eval()
         self.vnf_s_policy.load_state_dict(torch.load(f'{DEFAULT_PARAMETER_PATH_PREFIX}{self.edge_name}_{self.info.max_vnf_num}_vnf_s_policy.pt'))
-        self.vnf_p_policy.eval()
+        self.vnf_s_policy.eval()
 
     def set_train(self) -> None:
         self.vnf_p_policy.train()
@@ -382,7 +382,7 @@ def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927):
                    srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}final_{current_time}.mp4')
 
 
-def start(consolidation, vnf_num):
+def start(consolidation, vnf_num=0):
     seed = 927
 
     is_trained = consolidation.is_trained
@@ -477,8 +477,13 @@ def start(consolidation, vnf_num):
     )
 
     if is_trained:
-        agent.load()
-    else:
+        try:
+            agent.load()
+        except:
+            print('Runnable model is not exist.')
+            print('Start learning for this system.')
+            is_trained = False
+    if not is_trained:
         def make_train_env_fn(seed): return Environment(
             api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
                           srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],
