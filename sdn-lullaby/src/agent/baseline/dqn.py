@@ -1,4 +1,4 @@
-from src.const import VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM, VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM
+from src.const import VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM, VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, MAXIMUM_SFC_NUM
 from src.utils import (
     DebugInfo,
     print_debug_info,
@@ -77,7 +77,7 @@ class DQNAgent:
         possible_actions = self._get_possible_actions(
             state, self.info.max_vnf_num)
         vnf_s_in = self._convert_state_to_vnf_selection_input(
-            state, self.info.max_vnf_num, self.info.sfc_n)
+            state, self.info.max_vnf_num)
         epsilon = self.get_exploration_rate(epsilon_sub)
         is_random = np.random.uniform() < epsilon
         if is_random:
@@ -94,7 +94,7 @@ class DQNAgent:
                     torch.tensor([0 if len(possible_actions[i]) > 0 else -
                                  torch.inf for i in range(len(possible_actions))]).to(self.device)
                 vnf_s_out = vnf_s_out.max(1)[1]
-        vnf_p_in = convert_state_to_vnf_placement_input(state, int(vnf_s_out), self.info.sfc_n)
+        vnf_p_in = convert_state_to_vnf_placement_input(state, int(vnf_s_out))
         if is_random:
             srv_idxs = []
             for i in range(len(state.srvs)):
@@ -225,13 +225,13 @@ class DQNAgent:
                 new_p_actions[vnf_id] = []
         return new_p_actions
 
-    def _convert_state_to_vnf_selection_input(self, state: State, max_vnf_num: int, sfc_num: int) -> torch.Tensor:
+    def _convert_state_to_vnf_selection_input(self, state: State, max_vnf_num: int) -> torch.Tensor:
         min_load_srv_idx = self._get_min_load_srv_idx(state)
         dummy_state = deepcopy(state)
         for vnf in dummy_state.vnfs:
             if vnf.srv_id == min_load_srv_idx:
                 dummy_state.vnfs.remove(vnf)
-        return convert_state_to_vnf_selection_input(dummy_state, max_vnf_num, sfc_num)
+        return convert_state_to_vnf_selection_input(dummy_state, max_vnf_num)
 
 
 @dataclass
@@ -377,14 +377,14 @@ if __name__ == '__main__':
         vnf_p_lr=1e-3,
         gamma=0.99,
         vnf_s_model_info=DQNValueInfo(
-            in_dim=VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
+            in_dim=VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM,
             hidden_dim=32,
             num_heads=4,
             num_blocks=4,
             device=device,
         ),
         vnf_p_model_info=DQNValueInfo(
-            in_dim=VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
+            in_dim=VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM,
             hidden_dim=32,
             num_heads=4,
             num_blocks=4,

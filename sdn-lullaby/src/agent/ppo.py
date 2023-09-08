@@ -13,7 +13,7 @@ from src.api.testbed import Testbed
 from src.api.testbed_simulator import TestbedSimulator
 from src.memory.episode import EpisodeMemory
 from src.env import Environment, MultiprocessEnvironment
-from src.const import VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM
+from src.const import VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM, MAXIMUM_SFC_NUM
 from src.model.ppo import PPOPolicyInfo, PPOValueInfo, PPOPolicy, PPOValue
 from src.utils import (
     get_device,
@@ -86,25 +86,25 @@ class PPOAgent:
             state, self.info.vnf_s_policy_info.out_dim)
         if greedy:  # Greedy
             vnf_s_in = convert_state_to_vnf_selection_input(
-                state, self.info.vnf_s_policy_info.out_dim, self.info.sfc_n)
+                state, self.info.vnf_s_policy_info.out_dim)
             vnf_s_out = self.vnf_s_policy(vnf_s_in).detach().cpu()
             vnf_s_out = vnf_s_out * torch.tensor([True if len(
                 p_actions[vnf_id]) > 0 else False for vnf_id in range(self.info.vnf_s_policy_info.out_dim)])
             vnf_id = int(vnf_s_out.max())
-            vnf_p_in = convert_state_to_vnf_placement_input(state, vnf_id, self.info.sfc_n)
+            vnf_p_in = convert_state_to_vnf_placement_input(state, vnf_id)
             vnf_p_out = self.vnf_p_policy(vnf_p_in).detach().cpu()
             vnf_p_out = vnf_p_out * torch.tensor([True if srv_id in p_actions[vnf_id]
                                                  else False for srv_id in range(self.info.vnf_p_policy_info.out_dim)])
             srv_id = int(vnf_p_out.max())
         else:  # Stochastic
             vnf_s_in = convert_state_to_vnf_selection_input(
-                state, self.info.vnf_s_policy_info.out_dim, self.info.sfc_n)
+                state, self.info.vnf_s_policy_info.out_dim)
             vnf_s_out = self.vnf_s_policy(vnf_s_in).detach().cpu()
             vnf_s_out = vnf_s_out * torch.tensor([True if len(
                 p_actions[vnf_id]) > 0 else False for vnf_id in range(self.info.vnf_s_policy_info.out_dim)])
             vnf_id, _, _ = get_info_from_logits(vnf_s_out.unsqueeze(0))
             vnf_id = int(vnf_id)
-            vnf_p_in = convert_state_to_vnf_placement_input(state, vnf_id, self.info.sfc_n)
+            vnf_p_in = convert_state_to_vnf_placement_input(state, vnf_id)
             vnf_p_out = self.vnf_p_policy(vnf_p_in).detach().cpu()
             vnf_p_out = vnf_p_out * torch.tensor([True if srv_id in p_actions[vnf_id]
                                                  else False for srv_id in range(self.info.vnf_p_policy_info.out_dim)])
@@ -264,7 +264,7 @@ def train(agent: PPOAgent, make_env_fn: Callable, args: TrainArgs, file_name_pre
         args.gamma, args.tau,
         args.memory_max_episode_num, args.max_episode_steps,
         args.srv_n, args.sfc_n, args.max_vnf_num,
-        VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + args.sfc_n, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + args.sfc_n,
+        VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM,
     )
 
     env = make_env_fn(args.seed)
@@ -410,7 +410,7 @@ def start(consolidation, vnf_num=0):
         max_vnf_num=max_vnf_num,
         edge_name=consolidation.name,
         vnf_s_policy_info=PPOPolicyInfo(
-            in_dim=VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
+            in_dim=VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM,
             hidden_dim=32,
             out_dim=max_vnf_num,
             num_blocks=2,
@@ -418,7 +418,7 @@ def start(consolidation, vnf_num=0):
             device=device,
         ),
         vnf_p_policy_info=PPOPolicyInfo(
-            in_dim=VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
+            in_dim=VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM,
             hidden_dim=32,
             out_dim=srv_n,
             num_blocks=2,
@@ -426,7 +426,7 @@ def start(consolidation, vnf_num=0):
             device=device,
         ),
         vnf_s_value_info=PPOValueInfo(
-            in_dim=VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
+            in_dim=VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM,
             hidden_dim=32,
             seq_len=max_vnf_num,
             num_blocks=2,
@@ -434,7 +434,7 @@ def start(consolidation, vnf_num=0):
             device=device,
         ),
         vnf_p_value_info=PPOValueInfo(
-            in_dim=VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + sfc_n,
+            in_dim=VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM,
             hidden_dim=32,
             seq_len=srv_n,
             num_blocks=2,

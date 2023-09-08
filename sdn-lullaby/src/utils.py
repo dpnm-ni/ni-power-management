@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from src.dataType import State, Action
 from src.animator.animator import Animator
-from src.const import VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM
+from src.const import VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM, VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM, MAXIMUM_SFC_NUM
 
 
 @dataclass
@@ -51,13 +51,13 @@ def print_debug_info(debug_info: DebugInfo, refresh: bool = False):
     if refresh:
         print('\x1b[2K' + debug_msg, flush=True)
 
-def convert_state_to_vnf_selection_input(state: State, max_vnf_num: int, sfc_num: int) -> torch.Tensor:
-    vnf_selection_input = torch.zeros(max_vnf_num, VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + sfc_num, dtype=torch.float32)
+def convert_state_to_vnf_selection_input(state: State, max_vnf_num: int) -> torch.Tensor:
+    vnf_selection_input = torch.zeros(max_vnf_num, VNF_SELECTION_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM, dtype=torch.float32)
 
     for vnf in state.vnfs:
         vnf_selection_input[vnf.id] = torch.cat(
             (
-                F.one_hot(torch.tensor([vnf.sfc_id]), num_classes=sfc_num).squeeze(),
+                F.one_hot(torch.tensor([vnf.sfc_id]), num_classes=MAXIMUM_SFC_NUM).squeeze(),
                 torch.tensor([
                     vnf.cpu_req, vnf.mem_req,
                     state.srvs[vnf.srv_id].cpu_cap, state.srvs[vnf.srv_id].mem_cap,
@@ -71,12 +71,12 @@ def convert_state_to_vnf_selection_input(state: State, max_vnf_num: int, sfc_num
         
     return vnf_selection_input
 
-def convert_state_to_vnf_placement_input(state: State, vnf_id: int, sfc_num: int) -> torch.Tensor:
-    vnf_placement_input = torch.zeros(len(state.srvs), VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + sfc_num, dtype=torch.float32)
+def convert_state_to_vnf_placement_input(state: State, vnf_id: int) -> torch.Tensor:
+    vnf_placement_input = torch.zeros(len(state.srvs), VNF_PLACEMENT_IN_DIM_WITHOUT_SFC_NUM + MAXIMUM_SFC_NUM, dtype=torch.float32)
     for srv in state.srvs:
         vnf_placement_input[srv.id] = torch.cat(
             (
-                F.one_hot(torch.tensor([state.vnfs[vnf_id].sfc_id]), num_classes = sfc_num).squeeze(),
+                F.one_hot(torch.tensor([state.vnfs[vnf_id].sfc_id]), num_classes = MAXIMUM_SFC_NUM).squeeze(),
                 torch.tensor([
                     state.vnfs[vnf_id].cpu_req, state.vnfs[vnf_id].mem_req,
                     srv.cpu_cap, srv.mem_cap, srv.cpu_load, srv.mem_load,
