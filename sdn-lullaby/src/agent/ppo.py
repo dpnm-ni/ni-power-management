@@ -358,7 +358,7 @@ def extract_best_policy(agent: PPOAgent, make_env_fn: Callable, seed: int = 927)
     policy = policy[:max_idx+1]
     return policy
 
-def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927):
+def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927, is_trained: bool = False):
     env = make_env_fn(seed)
     state = env.reset()
     # for drawing graph
@@ -378,8 +378,9 @@ def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927):
     # Get the current time
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
-                   srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}final_{current_time}.mp4')
+    if not is_trained:
+        save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
+                    srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}{env.get_consolidation().name}_{max_vnf_num}_final_{current_time}.mp4')
 
 
 def start(consolidation, vnf_num=0):
@@ -504,4 +505,4 @@ def start(consolidation, vnf_num=0):
     policy = extract_best_policy(agent, make_policy_extractor_env_fn, seed) 
 
     # run upper policy in testbed
-    run_policy(make_testbed_env_fn, policy)
+    run_policy(make_testbed_env_fn, policy, is_trained)
