@@ -301,7 +301,7 @@ def all_consolidation(mode):
 
 def monitor(mode, response):
     while(True):
-        if mode=="dqn" :
+        if mode=="DQN" :
             DQN.start(response)
         else :
             PPO.start(response)

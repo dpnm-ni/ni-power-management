@@ -378,7 +378,7 @@ def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927, is_
 
     if not is_trained:
         save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
-                   srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}{env.get_consolidation().name}_{max_vnf_num}_final_{current_time}.mp4')
+                   srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}{env._get_consolidation().name}_{max_vnf_num}_final_{current_time}.mp4')
 
 
 def start(consolidation, vnf_num=0):
@@ -404,6 +404,7 @@ def start(consolidation, vnf_num=0):
     srv_cpu_cap = env_info._get_edge().cpu_cap
     srv_mem_cap = env_info._get_edge().mem_cap
 
+    if max_vnf_num == 0: return
         
     device = get_device()
     agent_info = DQNAgentInfo(
