@@ -358,7 +358,7 @@ def extract_best_policy(agent: PPOAgent, make_env_fn: Callable, seed: int = 927)
     policy = policy[:max_idx+1]
     return policy
 
-def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927, is_trained: bool = False):
+def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927):
     env = make_env_fn(seed)
     state = env.reset()
     # for drawing graph
@@ -378,15 +378,15 @@ def run_policy(make_env_fn: Callable, policy: List[Action], seed: int = 927, is_
     # Get the current time
     current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    if not is_trained:
-        save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
-                    srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}{env._get_consolidation().name}_{max_vnf_num}_final_{current_time}.mp4')
+   
+    save_animation(srv_n, sfc_n, max_vnf_num, srv_mem_cap,
+                srv_cpu_cap, history, f'{DEFAULT_RESULT_PATH_PREFIX}{env._get_consolidation().name}_{max_vnf_num}_final_{current_time}.mp4')
 
 
 def start(consolidation, vnf_num=0):
     seed = 927
 
-    is_trained = consolidation.is_trained
+    for_testbed_running = consolidation.is_trained
     # consolidation.name
     # consolidation.flag
 
@@ -479,14 +479,16 @@ def start(consolidation, vnf_num=0):
         early_stop_patience=50,
     )
 
-    if is_trained:
+    training_mode = not for_testbed_running
+    if for_testbed_running:
         try:
             agent.load()
         except:
             print('Runnable model is not exist.')
             print('Start learning for this system.')
-            is_trained = False
-    if not is_trained:
+            training_mode = True
+    
+    if training_mode:
         def make_train_env_fn(seed): return Environment(
             api=Simulator(srv_n=srv_n, sfc_n=sfc_n, max_vnf_num=max_vnf_num,
                           srv_cpu_cap=srv_cpu_cap, srv_mem_cap=srv_mem_cap, vnf_types=[(1, 0.5), (1, 1), (2, 1), (2, 2), (4, 2), (4, 4), (8, 4), (8, 8)],
@@ -496,15 +498,16 @@ def start(consolidation, vnf_num=0):
         train(agent, make_train_env_fn, train_args,
               file_name_prefix=f'{DEFAULT_RESULT_PATH_PREFIX}testebed-{agent_info.edge_name}-{max_vnf_num}')
 
-    def make_policy_extractor_env_fn(seed): return Environment(
-        api=TestbedSimulator(consolidation),
-        seed=seed,
-    )
+    if for_testbed_running:
+        def make_policy_extractor_env_fn(seed): return Environment(
+            api=TestbedSimulator(consolidation),
+            seed=seed,
+        )
 
-    # extract optimal policy
-    # in this system we don't know what is the best step size.
-    # so, we first simulate testbed environment and extract action list(policy).
-    policy = extract_best_policy(agent, make_policy_extractor_env_fn, seed) 
+        # extract optimal policy
+        # in this system we don't know what is the best step size.
+        # so, we first simulate testbed environment and extract action list(policy).
+        policy = extract_best_policy(agent, make_policy_extractor_env_fn, seed) 
 
-    # run upper policy in testbed
-    run_policy(make_testbed_env_fn, policy, is_trained)
+        # run upper policy in testbed
+        run_policy(make_testbed_env_fn, policy)
