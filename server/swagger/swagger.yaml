@@ -1,0 +1,134 @@
+---
+swagger: "2.0"
+info:
+  description: "VNF electricity power management module for the NI project."
+  version: "1.0.0"
+  title: "NI VNF Electricity Power Management"
+tags:
+- name: "ni_consolidation_module"
+  description: "Perform management decisions using ML algorithms."
+schemes:
+- "https"
+- "http"
+paths:
+  /build_test_environment:
+    post:
+      tags:
+      - "Test VNF Electricity Power Management APIs"
+      summary: "build test enviornment for vnf electricity power management"
+      operationId: "build_test_environment"
+      produces:
+      - "application/json"
+      parameters: []
+      responses:
+        "200":
+          description: "Success."
+          schema:
+            type: "string"
+        "400":
+          description: "Invalid parameters supplied."
+      x-swagger-router-controller: "server.controllers.default_controller"
+  /do_power_off:
+    post:
+      tags:
+      - "VNF Electricity Power Management APIs"
+      summary: "iDRAC power off"
+      operationId: "do_power_off"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "node_id"
+        in: "query"
+        description: "node id"
+        required: true
+        type: "string"
+      responses:
+        "200":
+          description: "Success."
+          schema:
+            type: "string"
+      x-swagger-router-controller: "server.controllers.default_controller"
+  /do_power_on:
+    post:
+      tags:
+      - "VNF Electricity Power Management APIs"
+      summary: "iDRAC power on"
+      operationId: "do_power_on"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "node_id"
+        in: "query"
+        description: "node id"
+        required: true
+        type: "string"
+      responses:
+        "200":
+          description: "Success."
+          schema:
+            type: "string"
+      x-swagger-router-controller: "server.controllers.default_controller"
+  /get_power_consumption:
+    post:
+      tags:
+      - "VNF Electricity Power Management APIs"
+      summary: "get power consumption"
+      operationId: "get_power_consumption"
+      produces:
+      - "application/json"
+      parameters: []
+      responses:
+        "200":
+          description: "Success."
+          schema:
+            type: "string"
+      x-swagger-router-controller: "server.controllers.default_controller"
+  /auto_consolidation:
+    post:
+      tags:
+      - "VNF Electricity Power Management APIs"
+      summary: "auto_consolidation"
+      operationId: "auto_consolidation"
+      produces:
+      - "application/json"
+      parameters: []
+      responses:
+        "200":
+          description: "Success."
+          schema:
+            type: "string"
+      x-swagger-router-controller: "server.controllers.default_controller"
+  /remove_consolidation:
+    post:
+      tags:
+      - "VNF Electricity Power Management APIs"
+      summary: "remove_consolidation"
+      operationId: "remove_consolidation"
+      produces:
+      - "application/json"
+      parameters: []
+      responses:
+        "200":
+          description: "Success."
+          schema:
+            type: "string"
+      x-swagger-router-controller: "server.controllers.default_controller"
+definitions:
+  ConsolidationInfo:
+    type: "object"
+    properties:
+      name:
+        type: "string"
+      active_flag:
+        type: "boolean"
+      model:
+        type: "string" 
+      nodes:
+        type: "array"
+        items:
+          type: "string"
+      is_trained:
+        type: "boolean"
+externalDocs:
+  description: "Find out more about DPNM NI."
+  url: "http://dpnm.postech.ac.kr/"
